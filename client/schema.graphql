@@ -1,0 +1,35 @@
+"""Exposes a URL that specifies the behaviour of this scalar."""
+directive @specifiedBy(
+  """The URL that specifies the behaviour of this scalar."""
+  url: String!
+) on SCALAR
+
+type Artist {
+  id: ID!
+  name: String!
+  tracks: [Track!]!
+  averageTrackRating: Float
+}
+
+type Mutation {
+  rateTrack(trackId: ID!, score: Float!): Rating!
+}
+
+type Query {
+  tracks: [Track!]!
+  track(id: ID!): Track
+}
+
+type Rating {
+  id: ID!
+  score: Float!
+  track: Track!
+}
+
+type Track {
+  id: ID!
+  title: String!
+  artist: Artist!
+  averageRating: Float
+}
+

@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const { graphqlHTTP } = require('express-graphql');
 const { buildSchema, GraphQLError } = require('graphql');
 
@@ -134,6 +135,7 @@ function ratingToAPI(r) {
 
 // http server
 const app = express();
+app.use(cors());
 
 app.use(
     '/graphql',
