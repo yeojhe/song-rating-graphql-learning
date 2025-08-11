@@ -13,6 +13,8 @@ const tracks = [
   {id: 't1', title: 'Feather', artistId: 'a1' },
   { id: 't2', title: 'Luv(sic) pt3', artistId: 'a1' },
   { id: 't3', title: 'Time: The Donut of the Heart', artistId: 'a2' },
+  { id: 't4', title: 'Mash', artistId: 'a2' },
+
 ];
 
 const ratings = [
