@@ -62,18 +62,24 @@ function avg(nums) {
 // resolvers
 // with express-graphql + buildSchema we put resolvers on rootValue
 // and for nested fields we provide resolver *methods* on the returned objects
+// so EVERYTHING within this root value at the top level is a resolver? regardless of whether
+// it is a mutation or it's a query?
 const rootValue = {
     // Queries
+    // when this is used in a query, the () can be omitted? because no parameter is required?
     tracks() {
         return tracks.map(trackToAPI);
     },
 
+    // when this is used as a query, you do have to provide an id?
     track({ id }) {
         const t = tracks.find((t) => t.id === id);
         return t ? trackToAPI(t) : null;
     },
 
     // Mutations
+    // there is nothing about this that specifically says "I'm a mutation", it's just the fact 
+    // that this function has a side effect?
     rateTrack({ trackId, score }) {
         if (score < 0 || score > 5) {
             throw new GraphQLError('Score must be between 0 and 5');
