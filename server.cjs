@@ -62,24 +62,26 @@ function avg(nums) {
 // resolvers
 // with express-graphql + buildSchema we put resolvers on rootValue
 // and for nested fields we provide resolver *methods* on the returned objects
-// so EVERYTHING within this root value at the top level is a resolver? regardless of whether
-// it is a mutation or it's a query?
+// with buildSchema + express-graphql functions on rootValue map to top-level fields on Query and Mutation by *name*
+// nested fields are handled by the default resolver (reads a value or calls a function on the returned object),
+// or by explicit per-type resolvers (in the resolver-map style to be used in production)
 const rootValue = {
     // Queries
-    // when this is used in a query, the () can be omitted? because no parameter is required?
+    // selection sets never use parentheses unless passing arguments
     tracks() {
         return tracks.map(trackToAPI);
     },
 
-    // when this is used as a query, you do have to provide an id?
+    // if there is a non-null argument, as defined by the schema, you have to provide an id
     track({ id }) {
         const t = tracks.find((t) => t.id === id);
         return t ? trackToAPI(t) : null;
     },
 
     // Mutations
-    // there is nothing about this that specifically says "I'm a mutation", it's just the fact 
-    // that this function has a side effect?
+    // the reason that we know this is a mutation is because it's defined as such in the schema
+    // resolver code is "just a function", but graphQL executes mutation fields serially and
+    // they're expected to cause side effects
     rateTrack({ trackId, score }) {
         if (score < 0 || score > 5) {
             throw new GraphQLError('Score must be between 0 and 5');
@@ -157,3 +159,16 @@ app.use(
 app.listen(4000, () => {
     console.log('GraphQL server running at http://localhost:4000/graphql');
 });
+
+/*
+what connects everything together:
+- SDL (the schema): declares fields, arg types, and nullability
+- Operation documents (your graphql`` tags) are validated against the schema
+- Resolvers are bound by field name (top-level via rootValue here, nested via default resolver
+or resolver map)
+- Relay compiler turns each operation/fragment into artifacts (query text + field metadata +
+TypeScript/Flow types if enabled)
+- Normalization: relay stores each object by id (and __typename). When a mutation returns 
+track { id averageRating }, Relay writes those fields into the existing Track(id) record ->
+components re-render
+*/

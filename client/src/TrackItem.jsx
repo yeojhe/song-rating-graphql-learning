@@ -1,10 +1,12 @@
 import React, {useState} from 'react';
 import {graphql, useFragment, useMutation} from 'react-relay';
 
-// a fragment is like a resuable subquery, so you can plug this fragment in to a larger query
-// whenever you need data in exactly this shape?
-// but more than that, does it help with type safety because fragments can implement interfaces?
-// I think there are other benefits too?
+// a fragment is like a resuable subquery, but it also helps with:
+// - colocation: a component declares the exact fields it needs
+// - composition: parents spread child fragments
+// - type safety: Relay compiler generates types for the fragment data (strongly typed props)
+// - selective fetch: parent queries only need to spread child fragments; you don't manually
+// keep fields in sync
 const TrackItemFragment = graphql`
     fragment TrackItem_track on Track {
         id
@@ -16,13 +18,8 @@ const TrackItemFragment = graphql`
 
 // this defines a mutation, where the track id and score are passed in as parameters and it
 // calls the mutation rateTrack defined in the server code's rootValue
-// so mutations are resolvers just like track and tracks are?
-// the thing that is confusing me with graphQL in general is that everything just seems to be
-// "just so" - there is nothing explictly connecting everything together it just works because
-// the functions, resolvers, fields, etc are all set up in a way that allows them to join together
-// in this loose way? Unless I'm missing something?
-// also, am I right in saying that the selection set within rateTrack defines the shape of the
-// data that should be returned when the mutation runs?
+// the selection set within rateTrack defines the shape of the data that should be returned when 
+// the mutation runs
 const RateTrackMutation = graphql`
     mutation TrackItem_RateTrackMutation($trackId: ID!, $score: Float!) {
         rateTrack(trackId: $trackId, score: $score) {
@@ -39,14 +36,12 @@ const RateTrackMutation = graphql`
 
 export default function TrackItem({ trackRef }) {
     const data = useFragment(TrackItemFragment, trackRef);
-    // isInFlight I assume is used as a kind of placeholder while the data is still updating
-    // on the server?
+    // isInFlight is a boolean that's true while the mutation request is still outstanding. 
+    // can be used for disabling a button or showing a spinner
     const [commit, isInFlight] = useMutation(RateTrackMutation);
     const [score, setScore] = useState(4.5);
 
     function rate(e) {
-        // preventDefault stops the page from reloading, right? Is there a "proper" way to do
-        // this or is it just the right way?
         e.preventDefault();
         commit({
             variables: { trackId: data.id, score: Number(score)},
