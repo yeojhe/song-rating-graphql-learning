@@ -1,10 +1,15 @@
-"""Exposes a URL that specifies the behaviour of this scalar."""
+"""Exposes a URL that specifies the behavior of this scalar."""
 directive @specifiedBy(
-  """The URL that specifies the behaviour of this scalar."""
+  """The URL that specifies the behavior of this scalar."""
   url: String!
 ) on SCALAR
 
-type Artist {
+"""
+Indicates exactly one field must be supplied and this field must not be `null`.
+"""
+directive @oneOf on INPUT_OBJECT
+
+type Artist implements Node {
   id: ID!
   name: String!
   tracks: [Track!]!
@@ -15,9 +20,14 @@ type Mutation {
   rateTrack(trackId: ID!, score: Float!): Rating!
 }
 
+interface Node {
+  id: ID!
+}
+
 type Query {
+  node(id: ID!): Node
   tracks: [Track!]!
-  track(id: ID!): Track
+  track(id: ID): Track
 }
 
 type Rating {
@@ -26,7 +36,7 @@ type Rating {
   track: Track!
 }
 
-type Track {
+type Track implements Node {
   id: ID!
   title: String!
   artist: Artist!

@@ -41,7 +41,7 @@ const schema = buildSchema(`
     interface Node { id: ID! }
 
     type Query {
-        type(id: ID!): Node
+        node(id: ID!): Node
         tracks: [Track!]!
         track(id: ID): Track
     }
