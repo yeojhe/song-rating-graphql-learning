@@ -1,0 +1,1 @@
+Practice GraphQL + Relay project/scratchpad for personal study session
