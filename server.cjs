@@ -21,24 +21,43 @@ const ratings = [
   { id: 'r1', score: 4.5, trackId: 't1' }
 ];
 
+// helpers
+function toGlobalId(type, id) {
+    return Buffer.from(`${type}:${id}`, 'utf8').toString('base64');
+}
+
+function fromGlobalId(globalId) {
+    try {
+        const decoded = Buffer.from(globalId, 'base64').toString('utf8');
+        const [type, id] = decoded.split(':');
+        if (!type || !id) throw new Error('Bad global id');
+        return {type, id};
+    } catch {
+        throw new GraphQLError('Invalid global ID');
+    }
+}
+
 const schema = buildSchema(`
+    interface Node { id: ID! }
+
     type Query {
+        type(id: ID!): Node
         tracks: [Track!]!
-        track(id: ID!): Track
+        track(id: ID): Track
     }
 
     type Mutation {
         rateTrack(trackId: ID!, score: Float!): Rating!
     }
 
-    type Track {
+    type Track implements Node {
         id: ID!
         title: String!
         artist: Artist!
         averageRating: Float
     }
 
-    type Artist {
+    type Artist implements Node {
         id: ID!
         name: String!
         tracks: [Track!]!
@@ -87,10 +106,13 @@ const rootValue = {
             throw new GraphQLError('Score must be between 0 and 5');
         }
 
-        const t = tracks.find((t) => t.id === trackId);
+        const { type, id: rawTrackId } = fromGlobalId(trackId);
+        if (type !== 'Track') throw new GraphQLError('trackId must be a Track Global ID');
+
+        const t = tracks.find((t) => t.id === rawTrackId);
         if (!t) throw new GraphQLError('track not found');
 
-        const rating = {id: 'r' + (ratings.length + 1), score, trackId};
+        const rating = {id: 'r' + (ratings.length + 1), score, trackId: rawTrackId};
         ratings.push(rating);
         return ratingToAPI(rating);
 
@@ -102,7 +124,10 @@ const rootValue = {
 // // returns that, if it's a function, it calls it to get the value
 function trackToAPI(t) {
     return {
-        id: t.id,
+        // this is for interface resolution
+        __typename: 'Track',
+        // global id
+        id: toGlobalId('Track', t.id),
         title: t.title,
         // parent resolvers:
         artist() {
@@ -118,7 +143,8 @@ function trackToAPI(t) {
 
 function artistToAPI(a) {
     return {
-        id: a.id,
+        __typename: 'Artist',
+        id: toGlobalId('Artist', a.id),
         name: a.name,
         tracks () {
             return tracks.filter((t) => t.artistId === a.id).map(trackToAPI);
