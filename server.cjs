@@ -87,13 +87,28 @@ function avg(nums) {
 const rootValue = {
     // Queries
     // selection sets never use parentheses unless passing arguments
+    node({id}) {
+        const { type, id: rawId } = fromGlobalId(id);
+        if (type === 'Track') {
+            const t = tracks.find(t => t.id === rawId);
+            return t ? trackToAPI(t) : null;
+        }
+        if (type === 'Artist') {
+            const a = artists.find(a => a.id === rawId);
+            return a ? artistToAPI(a) : null;
+        }
+        return null;
+    },
+
     tracks() {
         return tracks.map(trackToAPI);
     },
 
     // if there is a non-null argument, as defined by the schema, you have to provide an id
     track({ id }) {
-        const t = tracks.find((t) => t.id === id);
+        const {type, id: rawId} = fromGlobalId(id);
+        if (type !== 'Track') return null;
+        const t = tracks.find((t) => t.id === rawId);
         return t ? trackToAPI(t) : null;
     },
 
