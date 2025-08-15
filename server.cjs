@@ -37,10 +37,13 @@ function fromGlobalId(globalId) {
     }
 }
 
+// turn a numeric index into an opaque base64 cursor
 function toCursor(index) {
+    // create a string tag + index, so we can validate when decoding
     return Buffer.from(`cursor:${index}`, 'utf8').toString('base64');
 }
 
+// decode the base64 cursor back into an index
 function fromCursor(cursor) {
     const decoded = Buffer.from(cursor, 'base64').toString('utf8');
     const [label, idx] = decoded.split(':');
@@ -164,25 +167,33 @@ const rootValue = {
 
     },
 
+    // resolve the paginated list
     tracksConnection({ first, after }) {
+        // compute the starting index. If 'after' is provided, start after that edge
         const start = after ? fromCursor(after) + 1 : 0;
+        // take a slice of 'tracks' of length 'first', start at 'start'
         const slice = tracks.slice(start, start + first);
 
+        // convert each item into an edge with a per-item cursor
         const edges = slice.map((t, i) => {
+            // global index in the full list
             const absoluteIndex = start + i;
             return {
+                // opaque cursor for this position
                 cursor: toCursor(absoluteIndex),
+                // the track object, with __typename + global id
                 node: trackToAPI(t),
             };
         });
 
-        const endIndex = start + slice.length - 1;
+        // compute pagination metadata for this page
+        const endIndex = start + slice.length - 1; // index of last item on this page
         return {
             edges,
             pageInfo: {
                 hasNextPage: start + slice.length < tracks.length,
                 hasPreviousPage: start > 0,
-                startCursor: edges[0]?.cursor ?? null,
+                startCursor: edges[0]?.cursor ?? null, // null if page is empty
                 endCursor: edges[edges.length - 1]?.cursor ?? null,
             },
         };
