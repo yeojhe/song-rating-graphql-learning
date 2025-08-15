@@ -37,6 +37,19 @@ function fromGlobalId(globalId) {
     }
 }
 
+function toCursor(index) {
+    return Buffer.from(`cursor:${index}`, 'utf8').toString('base64');
+}
+
+function fromCursor(cursor) {
+    const decoded = Buffer.from(cursor, 'base64').toString('utf8');
+    const [label, idx] = decoded.split(':');
+    if (label !== 'cursor') throw new GraphQLError('Invalid cursor');
+    const n = Number.parseInt(idx, 10);
+    if (Number.isNaN(n)) throw new GraphQLError('Invalid cursor index');
+    return n;
+}
+
 const schema = buildSchema(`
     interface Node { id: ID! }
 
@@ -44,6 +57,7 @@ const schema = buildSchema(`
         node(id: ID!): Node
         tracks: [Track!]!
         track(id: ID): Track
+        tracksConnection(first: Int!, after: String): TrackConnection!
     }
 
     type Mutation {
@@ -68,6 +82,23 @@ const schema = buildSchema(`
         id: ID!
         score: Float!
         track: Track!
+    }
+
+    type TrackConnection {
+        edges: [TrackEdge!]!
+        pageInfo: PageInfo!
+    }
+
+    type TrackEdge {
+        node: Track!
+        cursor: String!
+    }
+
+    type PageInfo {
+        hasNextPage: Boolean!
+        hasPreviousPage: Boolean!
+        startCursor: String
+        endCursor: String
     }
 
 `);
@@ -131,6 +162,30 @@ const rootValue = {
         ratings.push(rating);
         return ratingToAPI(rating);
 
+    },
+
+    tracksConnection({ first, after }) {
+        const start = after ? fromCursor(after) + 1 : 0;
+        const slice = tracks.slice(start, start + first);
+
+        const edges = slice.map((t, i) => {
+            const absoluteIndex = start + i;
+            return {
+                cursor: toCursor(absoluteIndex),
+                node: trackToAPI(t),
+            };
+        });
+
+        const endIndex = start + slice.length - 1;
+        return {
+            edges,
+            pageInfo: {
+                hasNextPage: start + slice.length < tracks.length,
+                hasPreviousPage: start > 0,
+                startCursor: edges[0]?.cursor ?? null,
+                endCursor: edges[edges.length - 1]?.cursor ?? null,
+            },
+        };
     },
 };
 

@@ -24,10 +24,18 @@ interface Node {
   id: ID!
 }
 
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
 type Query {
   node(id: ID!): Node
   tracks: [Track!]!
   track(id: ID): Track
+  tracksConnection(first: Int!, after: String): TrackConnection!
 }
 
 type Rating {
@@ -41,5 +49,15 @@ type Track implements Node {
   title: String!
   artist: Artist!
   averageRating: Float
+}
+
+type TrackConnection {
+  edges: [TrackEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TrackEdge {
+  node: Track!
+  cursor: String!
 }
 
