@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<b097bb35ab9b37bc2655b465caf41f84>>
+ * @generated SignedSource<<7f367e8b2ad3a6d1b7bb10b199a02c4d>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -8,19 +8,21 @@
 
 'use strict';
 
-var node = {
+var node = (function(){
+var v0 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+};
+return {
   "argumentDefinitions": [],
   "kind": "Fragment",
   "metadata": null,
   "name": "TrackItem_track",
   "selections": [
-    {
-      "alias": null,
-      "args": null,
-      "kind": "ScalarField",
-      "name": "id",
-      "storageKey": null
-    },
+    (v0/*: any*/),
     {
       "alias": null,
       "args": null,
@@ -36,6 +38,7 @@ var node = {
       "name": "artist",
       "plural": false,
       "selections": [
+        (v0/*: any*/),
         {
           "alias": null,
           "args": null,
@@ -57,7 +60,8 @@ var node = {
   "type": "Track",
   "abstractKey": null
 };
+})();
 
-node.hash = "e7637d8d27377d09273bba2ee4322457";
+node.hash = "22302979b12f8651f0f993bb15f354c2";
 
 export default node;

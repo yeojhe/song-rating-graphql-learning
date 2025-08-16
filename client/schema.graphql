@@ -18,6 +18,7 @@ type Artist implements Node {
 
 type Mutation {
   rateTrack(trackId: ID!, score: Float!): Rating!
+  createTrack(title: String!, artistId: ID!): Track!
 }
 
 interface Node {

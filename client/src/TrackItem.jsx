@@ -11,7 +11,7 @@ const TrackItemFragment = graphql`
     fragment TrackItem_track on Track {
         id
         title
-        artist { name }
+        artist { id name }
         averageRating
     }
 `;

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<9897fb064187c9e060a606935f6e7dd4>>
+ * @generated SignedSource<<685c7ce80889e25a702fd3fed3303d83>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -13,7 +13,14 @@ import TrackListPaginationQuery_graphql from './TrackListPaginationQuery.graphql
 var node = (function(){
 var v0 = [
   "tracksConnection"
-];
+],
+v1 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+};
 return {
   "argumentDefinitions": [
     {
@@ -83,11 +90,17 @@ return {
               "name": "node",
               "plural": false,
               "selections": [
+                (v1/*: any*/),
                 {
                   "alias": null,
                   "args": null,
-                  "kind": "ScalarField",
-                  "name": "id",
+                  "concreteType": "Artist",
+                  "kind": "LinkedField",
+                  "name": "artist",
+                  "plural": false,
+                  "selections": [
+                    (v1/*: any*/)
+                  ],
                   "storageKey": null
                 },
                 {
@@ -132,6 +145,18 @@ return {
             }
           ],
           "storageKey": null
+        },
+        {
+          "kind": "ClientExtension",
+          "selections": [
+            {
+              "alias": null,
+              "args": null,
+              "kind": "ScalarField",
+              "name": "__id",
+              "storageKey": null
+            }
+          ]
         }
       ],
       "storageKey": null
@@ -142,6 +167,6 @@ return {
 };
 })();
 
-node.hash = "a935c72bb6ea43f92699351781c57602";
+node.hash = "3ed6063a794e3905a2b54875586b0979";
 
 export default node;

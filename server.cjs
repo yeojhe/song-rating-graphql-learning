@@ -65,6 +65,7 @@ const schema = buildSchema(`
 
     type Mutation {
         rateTrack(trackId: ID!, score: Float!): Rating!
+        createTrack(title: String!, artistId: ID!): Track!
     }
 
     type Track implements Node {
@@ -165,6 +166,22 @@ const rootValue = {
         ratings.push(rating);
         return ratingToAPI(rating);
 
+    },
+    // create a new track and return it (so the client can append it)
+    createTrack({title, artistId}) {
+        // decode the global artist ID
+        const { type, id: rawArtistId } = fromGlobalId(artistId);
+        if (type !== 'Artist') throw new GraphQLError('artistID must be an Artist ID');
+        const a = artists.find(x => x.id === rawArtistId);
+        if (!a) throw new GraphQLError('Artist not found');
+
+        // make a new raw track row
+        const newRawId = 't' + (tracks.length + 1);
+        const t = { id: newRawId, title, artistId: rawArtistId };
+        tracks.push(t);
+
+        // return the API-shaped object (has __typename + global id)
+        return trackToAPI(t);
     },
 
     // resolve the paginated list

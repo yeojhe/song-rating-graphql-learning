@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<d6808dd0dfcd2367b14102f56348d44b>>
+ * @generated SignedSource<<697ea5cc2f5d4191d8175c00a376a8a9>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -108,27 +108,27 @@ return {
                   {
                     "alias": null,
                     "args": null,
-                    "kind": "ScalarField",
-                    "name": "title",
-                    "storageKey": null
-                  },
-                  {
-                    "alias": null,
-                    "args": null,
                     "concreteType": "Artist",
                     "kind": "LinkedField",
                     "name": "artist",
                     "plural": false,
                     "selections": [
+                      (v2/*: any*/),
                       {
                         "alias": null,
                         "args": null,
                         "kind": "ScalarField",
                         "name": "name",
                         "storageKey": null
-                      },
-                      (v2/*: any*/)
+                      }
                     ],
+                    "storageKey": null
+                  },
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "title",
                     "storageKey": null
                   },
                   {
@@ -175,6 +175,18 @@ return {
               }
             ],
             "storageKey": null
+          },
+          {
+            "kind": "ClientExtension",
+            "selections": [
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "__id",
+                "storageKey": null
+              }
+            ]
           }
         ],
         "storageKey": null
@@ -191,12 +203,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "3ccc1dce7d42fc2129a444648b4b87bc",
+    "cacheID": "18e621a43fcd525615b4eef01af0ed2d",
     "id": null,
     "metadata": {},
     "name": "AppPaginationQuery",
     "operationKind": "query",
-    "text": "query AppPaginationQuery(\n  $count: Int!\n  $cursor: String\n) {\n  ...TrackList_tracks_1G22uz\n}\n\nfragment TrackItem_track on Track {\n  id\n  title\n  artist {\n    name\n    id\n  }\n  averageRating\n}\n\nfragment TrackList_tracks_1G22uz on Query {\n  tracksConnection(first: $count, after: $cursor) {\n    edges {\n      cursor\n      node {\n        id\n        ...TrackItem_track\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n"
+    "text": "query AppPaginationQuery(\n  $count: Int!\n  $cursor: String\n) {\n  ...TrackList_tracks_1G22uz\n}\n\nfragment TrackItem_track on Track {\n  id\n  title\n  artist {\n    id\n    name\n  }\n  averageRating\n}\n\nfragment TrackList_tracks_1G22uz on Query {\n  tracksConnection(first: $count, after: $cursor) {\n    edges {\n      cursor\n      node {\n        id\n        artist {\n          id\n        }\n        ...TrackItem_track\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n"
   }
 };
 })();

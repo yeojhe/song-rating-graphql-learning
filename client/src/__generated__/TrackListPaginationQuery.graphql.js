@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<ec0488f97aaa4317441bfcafe6bc5359>>
+ * @generated SignedSource<<3c5f3e24904cc5170b0248c3cf7a3a6f>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -108,27 +108,27 @@ return {
                   {
                     "alias": null,
                     "args": null,
-                    "kind": "ScalarField",
-                    "name": "title",
-                    "storageKey": null
-                  },
-                  {
-                    "alias": null,
-                    "args": null,
                     "concreteType": "Artist",
                     "kind": "LinkedField",
                     "name": "artist",
                     "plural": false,
                     "selections": [
+                      (v2/*: any*/),
                       {
                         "alias": null,
                         "args": null,
                         "kind": "ScalarField",
                         "name": "name",
                         "storageKey": null
-                      },
-                      (v2/*: any*/)
+                      }
                     ],
+                    "storageKey": null
+                  },
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "title",
                     "storageKey": null
                   },
                   {
@@ -175,6 +175,18 @@ return {
               }
             ],
             "storageKey": null
+          },
+          {
+            "kind": "ClientExtension",
+            "selections": [
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "__id",
+                "storageKey": null
+              }
+            ]
           }
         ],
         "storageKey": null
@@ -191,16 +203,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "41b6fdd34e3e7c4ad59203f9f5ea86c0",
+    "cacheID": "f0d2f37123b4c985a6c6f814fb254f54",
     "id": null,
     "metadata": {},
     "name": "TrackListPaginationQuery",
     "operationKind": "query",
-    "text": "query TrackListPaginationQuery(\n  $count: Int = 2\n  $cursor: String\n) {\n  ...TrackList_tracks_1G22uz\n}\n\nfragment TrackItem_track on Track {\n  id\n  title\n  artist {\n    name\n    id\n  }\n  averageRating\n}\n\nfragment TrackList_tracks_1G22uz on Query {\n  tracksConnection(first: $count, after: $cursor) {\n    edges {\n      cursor\n      node {\n        id\n        ...TrackItem_track\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n"
+    "text": "query TrackListPaginationQuery(\n  $count: Int = 2\n  $cursor: String\n) {\n  ...TrackList_tracks_1G22uz\n}\n\nfragment TrackItem_track on Track {\n  id\n  title\n  artist {\n    id\n    name\n  }\n  averageRating\n}\n\nfragment TrackList_tracks_1G22uz on Query {\n  tracksConnection(first: $count, after: $cursor) {\n    edges {\n      cursor\n      node {\n        id\n        artist {\n          id\n        }\n        ...TrackItem_track\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n"
   }
 };
 })();
 
-node.hash = "a935c72bb6ea43f92699351781c57602";
+node.hash = "3ed6063a794e3905a2b54875586b0979";
 
 export default node;
