@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { graphqlHTTP } = require('express-graphql');
+const { createHandler } = require('graphql-http/lib/use/express');
 const { buildSchema, GraphQLError } = require('graphql');
 
 // in memory data
@@ -273,10 +273,10 @@ app.use(cors());
 
 app.use(
     '/graphql',
-    graphqlHTTP({
+    createHandler({
         schema,
         rootValue,
-        graphiql: true, //graphiql IDE at /graphql
+        graphiql: true
     })
 );
 
