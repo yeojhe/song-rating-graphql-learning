@@ -1,7 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const { createHandler } = require('graphql-http/lib/use/express');
-const { buildSchema, GraphQLError } = require('graphql');
+// build the schema from SDL + resolvers
+const { makeExecutableSchema } = require('@graphql-tools/schema');
+const { ruruHTML } = require('ruru/server');
+const { GraphQLError } = require('graphql'); 
+
 
 // in memory data
 const artists = [
@@ -53,7 +57,7 @@ function fromCursor(cursor) {
     return n;
 }
 
-const schema = buildSchema(`
+const typeDefs = `
     interface Node { id: ID! }
 
     type Query {
@@ -105,7 +109,7 @@ const schema = buildSchema(`
         endCursor: String
     }
 
-`);
+`;
 
 // helpers
 function avg(nums) {
@@ -113,176 +117,131 @@ function avg(nums) {
     return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
-// resolvers
-// with express-graphql + buildSchema we put resolvers on rootValue
-// and for nested fields we provide resolver *methods* on the returned objects
-// with buildSchema + express-graphql functions on rootValue map to top-level fields on Query and Mutation by *name*
-// nested fields are handled by the default resolver (reads a value or calls a function on the returned object),
-// or by explicit per-type resolvers (in the resolver-map style to be used in production)
-const rootValue = {
-    // Queries
-    // selection sets never use parentheses unless passing arguments
-    node({id}) {
-        const { type, id: rawId } = fromGlobalId(id);
-        if (type === 'Track') {
-            const t = tracks.find(t => t.id === rawId);
-            return t ? trackToAPI(t) : null;
-        }
-        if (type === 'Artist') {
-            const a = artists.find(a => a.id === rawId);
-            return a ? artistToAPI(a) : null;
-        }
-        return null;
+//  resolver map
+const resolvers = {
+    // Interface type resolver: given a JS object, which graphQL type is it?
+    Node: {
+        __resolveType(obj) {
+            // we return raw rows from Query, discriminate by shape
+            if (obj && typeof obj == 'object') {
+                if ('title' in obj && 'artistId' in obj) return 'Track';
+                if ('name' in obj && !('artistId' in obj)) return 'Artist';
+            }
+            return null; // unresolved -> execution error if it happens
+        },
     },
+    Query: {
+        // non-paginated list (kept for simplicity/testing)
+        tracks: () => tracks, // raw rows, Track field resolvers will shape fields
+        // note: this version still takes a *local* id like "t1" (fine for now)
+        track: (_, { id }) => (id ? tracks.find(t => t.id === id) : null),
 
-    tracks() {
-        return tracks.map(trackToAPI);
-    },
+        // global refetch: decode the global id, fetch the raw row, return it
+        node: (_, { id }) => {
+            const { type, id: rawId } = fromGlobalId(id);
+            if (type === 'Track') return tracks.find(t => t.id === rawId) || null;
+            if (type === 'Artist') return artists.find(a => a.id === rawId) || null;
+            return null;
+        },
 
-    // if there is a non-null argument, as defined by the schema, you have to provide an id
-    track({ id }) {
-        const {type, id: rawId} = fromGlobalId(id);
-        if (type !== 'Track') return null;
-        const t = tracks.find((t) => t.id === rawId);
-        return t ? trackToAPI(t) : null;
-    },
-
-    // Mutations
-    // the reason that we know this is a mutation is because it's defined as such in the schema
-    // resolver code is "just a function", but graphQL executes mutation fields serially and
-    // they're expected to cause side effects
-    rateTrack({ trackId, score }) {
-        if (score < 0 || score > 5) {
-            throw new GraphQLError('Score must be between 0 and 5');
-        }
-
-        const { type, id: rawTrackId } = fromGlobalId(trackId);
-        if (type !== 'Track') throw new GraphQLError('trackId must be a Track Global ID');
-
-        const t = tracks.find((t) => t.id === rawTrackId);
-        if (!t) throw new GraphQLError('track not found');
-
-        const rating = {id: 'r' + (ratings.length + 1), score, trackId: rawTrackId};
-        ratings.push(rating);
-        return ratingToAPI(rating);
-
-    },
-    // create a new track and return it (so the client can append it)
-    createTrack({title, artistId}) {
-        // decode the global artist ID
-        const { type, id: rawArtistId } = fromGlobalId(artistId);
-        if (type !== 'Artist') throw new GraphQLError('artistID must be an Artist ID');
-        const a = artists.find(x => x.id === rawArtistId);
-        if (!a) throw new GraphQLError('Artist not found');
-
-        // make a new raw track row
-        const newRawId = 't' + (tracks.length + 1);
-        const t = { id: newRawId, title, artistId: rawArtistId };
-        tracks.push(t);
-
-        // return the API-shaped object (has __typename + global id)
-        return trackToAPI(t);
-    },
-
-    // resolve the paginated list
-    tracksConnection({ first, after }) {
-        // compute the starting index. If 'after' is provided, start after that edge
-        const start = after ? fromCursor(after) + 1 : 0;
-        // take a slice of 'tracks' of length 'first', start at 'start'
-        const slice = tracks.slice(start, start + first);
-
-        // convert each item into an edge with a per-item cursor
-        const edges = slice.map((t, i) => {
-            // global index in the full list
-            const absoluteIndex = start + i;
+        // cursor pagination over the tracks array (stable order as stored)
+        tracksConnection: (_, { first, after }) => {
+            const start = after ? fromCursor(after) + 1 : 0;
+            const slice = tracks.slice(start, start + first);
+            const edges = slice.map((t, i) => ({
+                node: t,
+                cursor: toCursor(start + i),
+            }));
             return {
-                // opaque cursor for this position
-                cursor: toCursor(absoluteIndex),
-                // the track object, with __typename + global id
-                node: trackToAPI(t),
+                edges,
+                pageInfo: {
+                    hasNextPage: start + slice.length < tracks.length,
+                    hasPreviousPage: start > 0,
+                    startCursor: edges[0]?.cursor ?? null,
+                    endCursor: edges[edges.length - 1]?.cursor ?? null,
+                },
             };
-        });
+        },
+    },
 
-        // compute pagination metadata for this page
-        const endIndex = start + slice.length - 1; // index of last item on this page
-        return {
-            edges,
-            pageInfo: {
-                hasNextPage: start + slice.length < tracks.length,
-                hasPreviousPage: start > 0,
-                startCursor: edges[0]?.cursor ?? null, // null if page is empty
-                endCursor: edges[edges.length - 1]?.cursor ?? null,
-            },
-        };
+    Mutation: {
+        // mutates ratings; expects a *global* trackId
+        rateTrack: (_, { trackId, score }) => {
+            if (score < 0 || score > 5) throw new GraphQLError('score must be between 1 and 5');
+            const { type, id: rawTrackId } = fromGlobalId(trackId);
+            if (type !== 'Track') throw new GraphQLError('trackId must be a Track ID');
+
+            const t = tracks.find(x => x.id === rawTrackId);
+            if (!t) throw new GraphQLError('track not found');
+
+            const rating = {id: 'r' + (ratings.length + 1), score, trackId: rawTrackId };
+            ratings.push(rating);
+            return rating; // Rating resolvers will handle nested fields
+        },
+
+        // creates a track; expects a global artistId; returns the new Track
+        createTrack: (_, { title, artistId }) => {
+            const { type, id: rawArtistId } = fromGlobalId(artistId);
+            if (type !== 'Artist') throw new GraphQLError('artistId must be an Artist ID');
+
+            const a = artists.find(x => x.id === rawArtistId);
+            if (!a) throw new GraphQLError('artist not found');
+
+            const newRawId = 't' + (tracks.length + 1);
+            const t = { id: newRawId, title, artistId: rawArtistId };
+            tracks.push(t);
+            return t; // track resolvers will shape fields
+        },
+    },
+
+    // field resolvers for Track (shape raw -> GraphQL fields)
+    Track: {
+        id: (t) => toGlobalId('Track', t.id),
+        title: (t) => t.title,
+        artist: (t) => artists.find(a => a.id === t.artistId),
+        averageRating: (t) => {
+            const scores = ratings.filter(r => r.trackId === t.id).map(r => r.score);
+            return avg(scores);
+        },
+    },
+
+    // field resolvers for Artist
+    Artist: {
+        id: (a) => toGlobalId('Artist', a.id),
+        name: (a) => a.name,
+        tracks: (a) => tracks.filter(t => t.artistId === a.id),
+        averageTrackRating: (a) => {
+            const ids = tracks.filter(t => t.artistId === a.id).map(t => t.id);
+            const scores = ratings.filter(r => ids.includes(r.trackId)).map(r => r.score);
+            return avg(scores);
+        },
+    },
+
+    Rating: {
+        id: (r) => r.id, // not Node; raw id is fine
+        score: (r) => r.score,
+        track: (r) => tracks.find(t => t.id === r.trackId),
     },
 };
 
-// field resolvers attached to returned objects
-// // default resolver: if a field is a plain value (like obj.id), it
-// // returns that, if it's a function, it calls it to get the value
-function trackToAPI(t) {
-    return {
-        // this is for interface resolution
-        __typename: 'Track',
-        // global id
-        id: toGlobalId('Track', t.id),
-        title: t.title,
-        // parent resolvers:
-        artist() {
-            const a = artists.find((a) => a.id === t.artistId);
-            return artistToAPI(a);
-        },
-        averageRating() {
-            const rs = ratings.filter((r) => r.trackId === t.id).map((r) => r.score);
-            return avg(rs);
-        },
-    };
-}
-
-function artistToAPI(a) {
-    return {
-        __typename: 'Artist',
-        id: toGlobalId('Artist', a.id),
-        name: a.name,
-        tracks () {
-            return tracks.filter((t) => t.artistId === a.id).map(trackToAPI);
-
-        },
-        averageTrackRating() {
-            const artistTrackIds = tracks.filter((t) => t.artistId === a.id).map((t) => t.id);
-            const rs = ratings.filter((r) => artistTrackIds.includes(r.trackId)).map((r) => r.score);
-            return avg(rs);
-        }
-    };
-}
-
-function ratingToAPI(r) {
-    return {
-        id: r.id,
-        score: r.score,
-        track() {
-            const t = tracks.find((t) => t.id === r.trackId);
-            return trackToAPI(t);
-        },
-    };
-}
+const schema = makeExecutableSchema({ typeDefs, resolvers });
 
 // http server
 const app = express();
 app.use(cors());
 
-app.use(
-    '/graphql',
-    createHandler({
-        schema,
-        rootValue,
-        graphiql: true
-    })
-);
+app.get('/graphql', (_req, res) => {
+  res.type('text/html').send(ruruHTML({ endpoint: '/graphql' }));
+});
+
+app.post('/graphql', createHandler({ schema }));
+
+app.options('/graphql', cors());
 
 app.listen(4000, () => {
-    console.log('GraphQL server running at http://localhost:4000/graphql');
+  console.log('GraphiQL at http://localhost:4000/graphql');
 });
+
 
 /*
 what connects everything together:

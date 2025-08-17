@@ -17,7 +17,8 @@
     "get-graphql-schema": "^2.1.2",
     "graphql-http": "^1.22.4",
     "react-relay": "^20.1.1",
-    "relay-runtime": "^20.1.1"
+    "relay-runtime": "^20.1.1",
+    "ruru": "^2.0.0-beta.29"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",
