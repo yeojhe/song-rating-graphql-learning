@@ -5,6 +5,7 @@ const { createHandler } = require('graphql-http/lib/use/express');
 const { makeExecutableSchema } = require('@graphql-tools/schema');
 const { ruruHTML } = require('ruru/server');
 const { GraphQLError } = require('graphql'); 
+const DataLoader = require('dataloader');
 
 
 // in memory data
@@ -55,6 +56,41 @@ function fromCursor(cursor) {
     const n = Number.parseInt(idx, 10);
     if (Number.isNaN(n)) throw new GraphQLError('Invalid cursor index');
     return n;
+}
+
+// dataloader-related functions
+function buildLoaders() {
+    // each DataLoader must return results in the same order as keys
+
+    const artistById = new DataLoader(async (ids) => {
+        //ids: [a1, a2, ...]
+        const byId = new Map(artists.map(a => [a.id, a]));
+        return ids.map(id => byId.get(id) || null);
+    });
+
+    const trackById = new DataLoader(async (ids) => {
+        const byId = new Map(tracks.map(t => [t.id, t]));
+        return ids.map(id => byId.get(id) || null);
+    });
+
+    const tracksByArtistId = new DataLoader(async (artistIds) => {
+        // group once, then map back in order
+        const grouped = new Map(artistIds.map(id => [id, []]));
+        for (const t of tracks) {
+            if (grouped.has(t.artistId)) grouped.get(t.artistId).push(t);
+        }
+        return artistIds.map(id => grouped.get(id) || []);
+    });
+
+    const ratingsByTrackId = new DataLoader(async (trackIds) => {
+        const grouped = new Map(trackIds.map(id => [id, []]));
+        for (const r of ratings) {
+            if (grouped.has(r.trackId)) grouped.get(r.trackId).push(r);
+        }
+        return trackIds.map(id => grouped.get(id) || []);
+    })
+
+    return { artistById, trackById, tracksByArtistId, ratingsByTrackId };
 }
 
 const typeDefs = `
@@ -134,18 +170,18 @@ const resolvers = {
         // non-paginated list (kept for simplicity/testing)
         tracks: () => tracks, // raw rows, Track field resolvers will shape fields
         // note: this version still takes a *local* id like "t1" (fine for now)
-        track: (_, { id }) => (id ? tracks.find(t => t.id === id) : null),
+        track: (_parent, { id }, { loaders }) => (id ? loaders.trackById.load(id) : null),
 
         // global refetch: decode the global id, fetch the raw row, return it
-        node: (_, { id }) => {
+        node: (_parent, { id }, { loaders }) => {
             const { type, id: rawId } = fromGlobalId(id);
-            if (type === 'Track') return tracks.find(t => t.id === rawId) || null;
-            if (type === 'Artist') return artists.find(a => a.id === rawId) || null;
+            if (type === 'Track') return loaders.trackById.load(rawId);
+            if (type === 'Artist') return loaders.artistById.load(rawId);
             return null;
         },
 
         // cursor pagination over the tracks array (stable order as stored)
-        tracksConnection: (_, { first, after }) => {
+        tracksConnection: (_p, { first, after }) => {
             const start = after ? fromCursor(after) + 1 : 0;
             const slice = tracks.slice(start, start + first);
             const edges = slice.map((t, i) => ({
@@ -166,30 +202,39 @@ const resolvers = {
 
     Mutation: {
         // mutates ratings; expects a *global* trackId
-        rateTrack: (_, { trackId, score }) => {
+        rateTrack: async (_p, { trackId, score }, { loaders }) => {
             if (score < 0 || score > 5) throw new GraphQLError('score must be between 1 and 5');
             const { type, id: rawTrackId } = fromGlobalId(trackId);
             if (type !== 'Track') throw new GraphQLError('trackId must be a Track ID');
 
-            const t = tracks.find(x => x.id === rawTrackId);
+            const t = await loaders.trackById.load(rawTrackId);
             if (!t) throw new GraphQLError('track not found');
 
             const rating = {id: 'r' + (ratings.length + 1), score, trackId: rawTrackId };
             ratings.push(rating);
+            
+            // keep caches coherent
+            loaders.ratingsByTrackId.clear(rawTrackId);
             return rating; // Rating resolvers will handle nested fields
+            
         },
 
         // creates a track; expects a global artistId; returns the new Track
-        createTrack: (_, { title, artistId }) => {
+        createTrack: async (_p, { title, artistId }, { loaders }) => {
             const { type, id: rawArtistId } = fromGlobalId(artistId);
             if (type !== 'Artist') throw new GraphQLError('artistId must be an Artist ID');
 
-            const a = artists.find(x => x.id === rawArtistId);
+            const a = await loaders.artistById.load(rawArtistId);
             if (!a) throw new GraphQLError('artist not found');
 
             const newRawId = 't' + (tracks.length + 1);
             const t = { id: newRawId, title, artistId: rawArtistId };
             tracks.push(t);
+
+            // invalidate caches that involve this artist's track list
+            loaders.tracksByArtistId.clear(rawArtistId);
+            // make the new track immediately available
+            loaders.trackById.clear(newRawId).prime(newRawId, t);
             return t; // track resolvers will shape fields
         },
     },
@@ -198,10 +243,11 @@ const resolvers = {
     Track: {
         id: (t) => toGlobalId('Track', t.id),
         title: (t) => t.title,
-        artist: (t) => artists.find(a => a.id === t.artistId),
-        averageRating: (t) => {
-            const scores = ratings.filter(r => r.trackId === t.id).map(r => r.score);
-            return avg(scores);
+        artist: (t, _a, { loaders }) => loaders.artistById.load(t.artistId),
+        averageRating: async (t, _args, { loaders }) => {
+            // batched by artist
+            const rs = await loaders.ratingsByTrackId.load(t.id);
+            return avg(rs.map(r => r.score));
         },
     },
 
@@ -209,10 +255,11 @@ const resolvers = {
     Artist: {
         id: (a) => toGlobalId('Artist', a.id),
         name: (a) => a.name,
-        tracks: (a) => tracks.filter(t => t.artistId === a.id),
-        averageTrackRating: (a) => {
-            const ids = tracks.filter(t => t.artistId === a.id).map(t => t.id);
-            const scores = ratings.filter(r => ids.includes(r.trackId)).map(r => r.score);
+        tracks: (a, _, { loaders }) => loaders.tracksByArtistId.load(a.id),
+        averageTrackRating: async (a, _, { loaders }) => {
+            const ts = await loaders.tracksByArtistId.load(a.id);
+            const rsArrays = await loaders.ratingsByTrackId.loadMany(ts.map(t => t.id));
+            const scores = rsArrays.flat().map(r => r.score);
             return avg(scores);
         },
     },
@@ -220,7 +267,7 @@ const resolvers = {
     Rating: {
         id: (r) => r.id, // not Node; raw id is fine
         score: (r) => r.score,
-        track: (r) => tracks.find(t => t.id === r.trackId),
+        track: (r, _, { loaders }) => loaders.trackById.load(r.trackId),
     },
 };
 
@@ -234,7 +281,14 @@ app.get('/graphql', (_req, res) => {
   res.type('text/html').send(ruruHTML({ endpoint: '/graphql' }));
 });
 
-app.post('/graphql', createHandler({ schema }));
+app.post('/graphql', createHandler({ 
+    schema,
+    context: (req, res) => ({
+        loaders: buildLoaders(),
+        req,
+        res,
+    }), 
+}));
 
 app.options('/graphql', cors());
 

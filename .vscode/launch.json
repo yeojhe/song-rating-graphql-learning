@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch GraphQL Server",
+      "program": "${workspaceFolder}/server.cjs",
+      "runtimeArgs": [
+        "--nolazy"            // ensures breakpoints hit in transpiled/commonjs files
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",  // see stdout/stderr in the VS Code terminal
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    }
+  ]
+}
