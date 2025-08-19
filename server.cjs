@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createHandler } = require('graphql-http/lib/use/express');
@@ -6,25 +7,9 @@ const { makeExecutableSchema } = require('@graphql-tools/schema');
 const { ruruHTML } = require('ruru/server');
 const { GraphQLError } = require('graphql'); 
 const DataLoader = require('dataloader');
+const { PrismaClient } = require('./generated/prisma');
+const prisma = new PrismaClient();
 
-
-// in memory data
-const artists = [
-    { id: 'a1', name: 'Nujabes' },
-    { id: 'a2', name: 'J Dilla' }
-];
-
-const tracks = [
-  {id: 't1', title: 'Feather', artistId: 'a1' },
-  { id: 't2', title: 'Luv(sic) pt3', artistId: 'a1' },
-  { id: 't3', title: 'Time: The Donut of the Heart', artistId: 'a2' },
-  { id: 't4', title: 'Mash', artistId: 'a2' },
-
-];
-
-const ratings = [
-  { id: 'r1', score: 4.5, trackId: 't1' }
-];
 
 // helpers
 function toGlobalId(type, id) {
@@ -40,6 +25,18 @@ function fromGlobalId(globalId) {
     } catch {
         throw new GraphQLError('Invalid global ID');
     }
+}
+
+function toIdCursor(id) {
+  return Buffer.from(`id:${id}`, 'utf8').toString('base64');
+}
+function fromIdCursor(cursor) {
+  const decoded = Buffer.from(cursor, 'base64').toString('utf8'); // "id:123"
+  const [label, raw] = decoded.split(':');
+  if (label !== 'id') throw new GraphQLError('Invalid cursor');
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n)) throw new GraphQLError('Invalid cursor id');
+  return n;
 }
 
 // turn a numeric index into an opaque base64 cursor
@@ -59,34 +56,36 @@ function fromCursor(cursor) {
 }
 
 // dataloader-related functions
-function buildLoaders() {
+function buildLoaders(prisma) {
     // each DataLoader must return results in the same order as keys
 
     const artistById = new DataLoader(async (ids) => {
         //ids: [a1, a2, ...]
-        const byId = new Map(artists.map(a => [a.id, a]));
+        const rows = await prisma.artist.findMany({ where: { id: { in: ids } } });
+        const byId = new Map(rows.map(a => [a.id, a]));
         return ids.map(id => byId.get(id) || null);
     });
 
     const trackById = new DataLoader(async (ids) => {
-        const byId = new Map(tracks.map(t => [t.id, t]));
+        const rows = await prisma.track.findMany({ where: { id: { in: ids} } });
+        const byId = new Map(rows.map(t => [t.id, t]));
         return ids.map(id => byId.get(id) || null);
     });
 
     const tracksByArtistId = new DataLoader(async (artistIds) => {
-        // group once, then map back in order
+        const rows = await prisma.track.findMany({
+            where: { artistId: { in: artistIds } },
+            orderBy: { id: 'asc' },
+        });
         const grouped = new Map(artistIds.map(id => [id, []]));
-        for (const t of tracks) {
-            if (grouped.has(t.artistId)) grouped.get(t.artistId).push(t);
-        }
+        for (const t of rows) grouped.get(t.artistId)?.push(t);
         return artistIds.map(id => grouped.get(id) || []);
     });
 
     const ratingsByTrackId = new DataLoader(async (trackIds) => {
+        const rows = await prisma.rating.findMany( { where: {trackId: { in: trackIds } } });
         const grouped = new Map(trackIds.map(id => [id, []]));
-        for (const r of ratings) {
-            if (grouped.has(r.trackId)) grouped.get(r.trackId).push(r);
-        }
+        for (const r of rows) grouped.get(r.trackId)?.push(r);
         return trackIds.map(id => grouped.get(id) || []);
     })
 
@@ -168,31 +167,39 @@ const resolvers = {
     },
     Query: {
         // non-paginated list (kept for simplicity/testing)
-        tracks: () => tracks, // raw rows, Track field resolvers will shape fields
-        // note: this version still takes a *local* id like "t1" (fine for now)
-        track: (_parent, { id }, { loaders }) => (id ? loaders.trackById.load(id) : null),
+        tracks: () => prisma.track.findMany({ orderBy: { id: 'asc'}}),
+        track: (_p, { id }, { loaders }) => (id ? loaders.trackById.load(Number(id)) : null),
 
         // global refetch: decode the global id, fetch the raw row, return it
         node: (_parent, { id }, { loaders }) => {
-            const { type, id: rawId } = fromGlobalId(id);
+            const { type, id: raw } = fromGlobalId(id);
+            const rawId = Number(raw);
             if (type === 'Track') return loaders.trackById.load(rawId);
             if (type === 'Artist') return loaders.artistById.load(rawId);
             return null;
         },
 
         // cursor pagination over the tracks array (stable order as stored)
-        tracksConnection: (_p, { first, after }) => {
-            const start = after ? fromCursor(after) + 1 : 0;
-            const slice = tracks.slice(start, start + first);
-            const edges = slice.map((t, i) => ({
+        tracksConnection: async (_p, { first, after }) => {
+            const afterId = after ? fromIdCursor(after) : undefined;
+            const rows = await prisma.track.findMany({
+                where: afterId ? { id: {gt: afterId } } : undefined,
+                orderBy: { id: 'asc'},
+                take: first + 1, // fetch one extra to know if there is a next page
+            });
+
+            const hasNextPage = rows.length > first;
+            const page = hasNextPage ? rows.slice(0, first) : rows;
+
+            const edges = page.map((t) => ({
                 node: t,
-                cursor: toCursor(start + i),
+                cursor: toIdCursor(t.id),
             }));
             return {
                 edges,
                 pageInfo: {
-                    hasNextPage: start + slice.length < tracks.length,
-                    hasPreviousPage: start > 0,
+                    hasNextPage,
+                    hasPreviousPage: !!afterId,
                     startCursor: edges[0]?.cursor ?? null,
                     endCursor: edges[edges.length - 1]?.cursor ?? null,
                 },
@@ -204,37 +211,37 @@ const resolvers = {
         // mutates ratings; expects a *global* trackId
         rateTrack: async (_p, { trackId, score }, { loaders }) => {
             if (score < 0 || score > 5) throw new GraphQLError('score must be between 1 and 5');
-            const { type, id: rawTrackId } = fromGlobalId(trackId);
+            const { type, id: raw } = fromGlobalId(trackId);
             if (type !== 'Track') throw new GraphQLError('trackId must be a Track ID');
+            const rawTrackId = Number(raw);
 
             const t = await loaders.trackById.load(rawTrackId);
             if (!t) throw new GraphQLError('track not found');
 
-            const rating = {id: 'r' + (ratings.length + 1), score, trackId: rawTrackId };
-            ratings.push(rating);
+            const rating = await prisma.rating.create({ data: { score, trackId: rawTrackId }});
             
             // keep caches coherent
             loaders.ratingsByTrackId.clear(rawTrackId);
+            loaders.trackById.clear(rawTrackId);
             return rating; // Rating resolvers will handle nested fields
             
         },
 
         // creates a track; expects a global artistId; returns the new Track
         createTrack: async (_p, { title, artistId }, { loaders }) => {
-            const { type, id: rawArtistId } = fromGlobalId(artistId);
+            const { type, id: raw } = fromGlobalId(artistId);
             if (type !== 'Artist') throw new GraphQLError('artistId must be an Artist ID');
+            const rawArtistId = Number(raw);
 
             const a = await loaders.artistById.load(rawArtistId);
             if (!a) throw new GraphQLError('artist not found');
 
-            const newRawId = 't' + (tracks.length + 1);
-            const t = { id: newRawId, title, artistId: rawArtistId };
-            tracks.push(t);
+            const t = await prisma.track.create({ data: { title, artistId: rawArtistId }});
 
             // invalidate caches that involve this artist's track list
             loaders.tracksByArtistId.clear(rawArtistId);
             // make the new track immediately available
-            loaders.trackById.clear(newRawId).prime(newRawId, t);
+            loaders.trackById.clear(t.id).prime(t.id, t);
             return t; // track resolvers will shape fields
         },
     },
@@ -247,7 +254,9 @@ const resolvers = {
         averageRating: async (t, _args, { loaders }) => {
             // batched by artist
             const rs = await loaders.ratingsByTrackId.load(t.id);
-            return avg(rs.map(r => r.score));
+            return rs.length ? rs.reduce((s, r) => s + r.score, 0) / rs.length : null;
+            // const agg = await prisma.rating.aggregate({ _avg: { score: true}, where: { trackId: t.id }});
+            // return agg._avg.score;
         },
     },
 
@@ -258,9 +267,9 @@ const resolvers = {
         tracks: (a, _, { loaders }) => loaders.tracksByArtistId.load(a.id),
         averageTrackRating: async (a, _, { loaders }) => {
             const ts = await loaders.tracksByArtistId.load(a.id);
-            const rsArrays = await loaders.ratingsByTrackId.loadMany(ts.map(t => t.id));
-            const scores = rsArrays.flat().map(r => r.score);
-            return avg(scores);
+            const ratingsLists = await loaders.ratingsByTrackId.loadMany(ts.map(t => t.id));
+            const scores = ratingsLists.flat().map(r => r.score);
+            return scores.length ? scores.reduce((s, x) => s + x, 0) / scores.length : null;
         },
     },
 
@@ -284,7 +293,7 @@ app.get('/graphql', (_req, res) => {
 app.post('/graphql', createHandler({ 
     schema,
     context: (req, res) => ({
-        loaders: buildLoaders(),
+        loaders: buildLoaders(prisma),
         req,
         res,
     }), 
