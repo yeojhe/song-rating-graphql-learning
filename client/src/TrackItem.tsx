@@ -1,5 +1,8 @@
 import React, {useState} from 'react';
 import {graphql, useFragment, useMutation} from 'react-relay';
+import type { TrackItem_track$key } from './__generated__/TrackItem_track.graphql';
+import type { TrackItem_RateTrackMutation as RateMut } from './__generated__/TrackItem_RateTrackMutation.graphql';
+
 
 // a fragment is like a resuable subquery, but it also helps with:
 // - colocation: a component declares the exact fields it needs
@@ -34,14 +37,16 @@ const RateTrackMutation = graphql`
     }
 `;
 
-export default function TrackItem({ trackRef }) {
+type Props = { trackRef: TrackItem_track$key };
+
+export default function TrackItem({ trackRef }: Props ) {
     const data = useFragment(TrackItemFragment, trackRef);
     // isInFlight is a boolean that's true while the mutation request is still outstanding. 
     // can be used for disabling a button or showing a spinner
-    const [commit, isInFlight] = useMutation(RateTrackMutation);
-    const [score, setScore] = useState(4.5);
+    const [commit, isInFlight] = useMutation<RateMut>(RateTrackMutation);
+    const [score, setScore] = useState<number>(4.5);
 
-    function rate(e) {
+    function rate(e: React.FormEvent) {
         e.preventDefault();
         commit({
             variables: { trackId: data.id, score: Number(score)},
@@ -59,7 +64,7 @@ export default function TrackItem({ trackRef }) {
                 <input
                     type="number" step="0.5" min="0" max="5"
                     value={score}
-                    onChange={e => setScore(e.target.value)}
+                    onChange={e => setScore(Number(e.target.value))}
                     style={{width: 64}}
                 />
                 <button type="submit" disabled={isInFlight} style={{marginLeft:4}}>

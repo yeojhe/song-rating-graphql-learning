@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "lib": ["ES2020", "DOM"] ,
+    // "paths": {
+    //   "react": [ "./node_modules/@types/react" ]
+    // }
+    // "types": ["vite/client", "relay-runtime", "node"]
+  },
+  "include": ["src", "relay-env.d.ts"]
+}

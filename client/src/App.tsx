@@ -1,7 +1,6 @@
-import React from 'react';
 import { graphql, useLazyLoadQuery } from 'react-relay';
-import TrackItem from './TrackItem';
 import TrackList from './TrackList';
+import type { AppPaginationQuery as AppPaginationQueryType } from './__generated__/AppPaginationQuery.graphql';
 
 // const TrackQuery = graphql`
 //   query App_TracksQuery {
@@ -19,7 +18,7 @@ const AppPaginationQuery = graphql`
 `;
 
 export default function App() {
-  const data = useLazyLoadQuery(AppPaginationQuery, {count: 2, cursor: null});
+  const data = useLazyLoadQuery<AppPaginationQueryType>(AppPaginationQuery, {count: 2, cursor: null});
   return <TrackList queryRef={data} />;
   
 }
