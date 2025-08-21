@@ -15,25 +15,6 @@ import {
 
 import type { FetchFunction } from "relay-runtime";
 
-// Relay calls this for every operation. params includes things like
-// - text: the compiled query string
-// - name: operation name (eg. App_TracksQuery)
-// - id: persisted query id (if PQs are enabled)
-// async function fetchGraphQL(
-//     params: RequestParameters, 
-//     variables: Variables
-// ): Promise<GraphQLResponse> {
-//     // posts to the backend graphQL endpoint with { query, variables }
-//     // returns graphQL JSON { data, errors? }. Relay expects *this exact shape*
-//     const resp = await fetch('http://localhost:4000/graphql', {
-//         method: 'POST',
-//         headers: { 'content-type': 'application/json' },
-//         body: JSON.stringify({ query: params.text, variables }),
-//     });
-//     return await resp.json();
-// }
-
-
 const fetchGraphQL: FetchFunction = async (
     params: RequestParameters, 
     variables: Variables

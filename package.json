@@ -24,6 +24,8 @@
     "ruru": "^2.0.0-beta.29"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@vitejs/plugin-react": "^5.0.0",
     "babel-plugin-relay": "^20.1.1",
     "dotenv": "^17.2.1",
@@ -31,6 +33,9 @@
     "react-relay": "^20.1.1",
     "relay-compiler": "^20.1.1",
     "relay-runtime": "^20.1.1",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2",
     "vite-plugin-relay": "^2.1.0"
   },
   "prisma": {
