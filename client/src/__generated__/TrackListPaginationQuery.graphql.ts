@@ -1,5 +1,6 @@
 /**
- * @generated SignedSource<<750b9d69f1d63ded35c6fd95dd8a68ff>>
+ * @generated SignedSource<<2b1c1952c694b9ebb8e4d989933860ab>>
+ * @relayHash f0d2f37123b4c985a6c6f814fb254f54
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -7,6 +8,8 @@
 /* tslint:disable */
 /* eslint-disable */
 // @ts-nocheck
+
+// @relayRequestID 9bc3bae303ecb5f64f566b4f4707dafbca43219f7b0c2e908cfd2addb7f6fb6a
 
 import { ConcreteRequest } from 'relay-runtime';
 import { FragmentRefs } from "relay-runtime";
@@ -217,12 +220,11 @@ return {
     ]
   },
   "params": {
-    "cacheID": "f0d2f37123b4c985a6c6f814fb254f54",
-    "id": null,
+    "id": "9bc3bae303ecb5f64f566b4f4707dafbca43219f7b0c2e908cfd2addb7f6fb6a",
     "metadata": {},
     "name": "TrackListPaginationQuery",
     "operationKind": "query",
-    "text": "query TrackListPaginationQuery(\n  $count: Int = 2\n  $cursor: String\n) {\n  ...TrackList_tracks_1G22uz\n}\n\nfragment TrackItem_track on Track {\n  id\n  title\n  artist {\n    id\n    name\n  }\n  averageRating\n}\n\nfragment TrackList_tracks_1G22uz on Query {\n  tracksConnection(first: $count, after: $cursor) {\n    edges {\n      cursor\n      node {\n        id\n        artist {\n          id\n        }\n        ...TrackItem_track\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n"
+    "text": null
   }
 };
 })();

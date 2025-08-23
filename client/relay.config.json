@@ -1,6 +1,11 @@
+
 {
   "src": "./src",
   "schema": "./schema.graphql",
   "language": "typescript",
-  "eagerEsModules": true
+  "eagerEsModules": true,
+  "persistConfig": {
+    "file": "../persisted-queries.json",
+    "algorithm": "SHA256"
+  }
 }

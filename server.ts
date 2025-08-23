@@ -10,7 +10,20 @@ import { GraphQLError } from 'graphql';
 import DataLoader from 'dataloader';
 import { PrismaClient, Artist, Track, Rating } from './generated/prisma';
 const prisma = new PrismaClient();
+import fs from 'node:fs';
+import path from 'node:path';
 
+// load manifest once at startup
+const PERSISTED_PATH = path.resolve(__dirname, 'persisted-queries.json');
+let PERSISTED: Record<string, string> = {};
+try {
+    PERSISTED = JSON.parse(fs.readFileSync(PERSISTED_PATH, 'utf8'));
+    console.log(`Loaded ${Object.keys(PERSISTED).length} persisted queries`)
+} catch {
+    console.warn('No persisted-queries.json found yet')
+}
+
+const PERSISTED_ONLY = process.env.PERSISTED_ONLY === 'true';
 
 // helpers
 type GlobalId = {type: string, id: string};
@@ -300,15 +313,50 @@ app.get('/graphql', (_req, res) => {
   res.type('text/html').send(ruruHTML({ endpoint: '/graphql' }));
 });
 
-app.post('/graphql', createHandler({ 
-    schema,
-    context: (req, res) => ({
-        prisma,
-        loaders: buildLoaders(prisma),
-        req,
-        res,
-    }), 
-}));
+// app.post('/graphql', createHandler({ 
+//     schema,
+//     context: (req, res) => ({
+//         prisma,
+//         loaders: buildLoaders(prisma),
+//         req,
+//         res,
+//     }), 
+// }));
+
+app.post(
+    '/graphql',
+    express.json(),
+    (req, res, next) => {
+        // if client sent an id, fill in req.body.query from the manifest
+        if (req.body && typeof req.body.id === 'string' && !req.body.query) {
+            const text = PERSISTED[req.body.id];
+            if (!text) {
+                return res
+                    .status(400)
+                    .json({ errors: [{message: 'Unknown persisted query id'}]});
+            }
+            req.body.query = text;
+        }
+
+        // in strict mode, reject non-persisted operations
+        if (PERSISTED_ONLY && !req.body.id) {
+            return res
+                .status(400)
+                .json({ errors: [{message: 'persisted queries only'}]});
+        }
+
+        return next();
+    },
+    createHandler({
+        schema,
+        context: (req, res) => ({
+            prisma,
+            loaders: buildLoaders(prisma),
+            req,
+            res
+        })
+    })
+);
 
 app.options('/graphql', cors());
 

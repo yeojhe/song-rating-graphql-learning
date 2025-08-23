@@ -1,5 +1,6 @@
 /**
- * @generated SignedSource<<9904f6d3ad558a232b04e0060cb64dbc>>
+ * @generated SignedSource<<bf4d95bf338ed2d122d1a7d5c04af96d>>
+ * @relayHash e6a5d4d36557aa2de7f87456faefafc9
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -7,6 +8,8 @@
 /* tslint:disable */
 /* eslint-disable */
 // @ts-nocheck
+
+// @relayRequestID 311f0197703256483874e8a0f54450a1f32d2ef338890546d22149bc643f8028
 
 import { ConcreteRequest } from 'relay-runtime';
 import { FragmentRefs } from "relay-runtime";
@@ -172,12 +175,11 @@ return {
     ]
   },
   "params": {
-    "cacheID": "e6a5d4d36557aa2de7f87456faefafc9",
-    "id": null,
+    "id": "311f0197703256483874e8a0f54450a1f32d2ef338890546d22149bc643f8028",
     "metadata": {},
     "name": "TrackList_CreateTrackMutation",
     "operationKind": "mutation",
-    "text": "mutation TrackList_CreateTrackMutation(\n  $title: String!\n  $artistId: ID!\n) {\n  createTrack(title: $title, artistId: $artistId) {\n    id\n    ...TrackItem_track\n  }\n}\n\nfragment TrackItem_track on Track {\n  id\n  title\n  artist {\n    id\n    name\n  }\n  averageRating\n}\n"
+    "text": null
   }
 };
 })();

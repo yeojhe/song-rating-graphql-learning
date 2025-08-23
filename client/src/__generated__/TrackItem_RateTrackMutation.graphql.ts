@@ -1,5 +1,6 @@
 /**
- * @generated SignedSource<<5faa9fcec7665d00a224ccf6b97ef07b>>
+ * @generated SignedSource<<2583d09da6c28a409d45d2bc7836a907>>
+ * @relayHash 0a50e3b91364f38b02b4e7e9202fbe71
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -7,6 +8,8 @@
 /* tslint:disable */
 /* eslint-disable */
 // @ts-nocheck
+
+// @relayRequestID 448bd5f4a11a120d32be6bac8d1101539bea7edf0ac5e79c50689ac1af17d984
 
 import { ConcreteRequest } from 'relay-runtime';
 export type TrackItem_RateTrackMutation$variables = {
@@ -121,12 +124,11 @@ return {
     "selections": (v3/*: any*/)
   },
   "params": {
-    "cacheID": "0a50e3b91364f38b02b4e7e9202fbe71",
-    "id": null,
+    "id": "448bd5f4a11a120d32be6bac8d1101539bea7edf0ac5e79c50689ac1af17d984",
     "metadata": {},
     "name": "TrackItem_RateTrackMutation",
     "operationKind": "mutation",
-    "text": "mutation TrackItem_RateTrackMutation(\n  $trackId: ID!\n  $score: Float!\n) {\n  rateTrack(trackId: $trackId, score: $score) {\n    id\n    score\n    track {\n      id\n      averageRating\n    }\n  }\n}\n"
+    "text": null
   }
 };
 })();

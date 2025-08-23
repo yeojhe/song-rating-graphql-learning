@@ -19,10 +19,14 @@ const fetchGraphQL: FetchFunction = async (
     params: RequestParameters, 
     variables: Variables
 ): Promise<GraphQLResponse> => {
+  const body = params.id != null
+    ? { id: params.id, variables}
+    : { query: params.text, variables };
+
   const resp = await fetch('http://localhost:4000/graphql', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ query: params.text, variables }),
+    body: JSON.stringify(body),
   });
   return resp.json();
 };
