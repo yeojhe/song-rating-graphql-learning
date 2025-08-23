@@ -5,6 +5,7 @@ import { useMutation } from 'react-relay';
 import type { TrackList_tracks$key } from './__generated__/TrackList_tracks.graphql';
 import type { TrackList_CreateTrackMutation as CreateMut } from './__generated__/TrackList_CreateTrackMutation.graphql';
 import type { TrackList_tracks$data } from './__generated__/TrackList_tracks.graphql';
+import DevPanel from './DevPanel';
 
 // Mutation: return a Track and declaratively append it to our connection
 // - @appendNode: tells Relay to create a new edge for this node and add it
@@ -85,6 +86,7 @@ export default function TrackList({ queryRef }: Props) {
 
     const [title, setTitle] = useState('');
     const [artistId, setArtistId] = useState<string>(artistIds[0] ?? "");
+    const firstId = edges[0]?.node?.id ?? null;
 
     function submitCreate(e: React.FormEvent) {
         e.preventDefault();
@@ -104,6 +106,8 @@ export default function TrackList({ queryRef }: Props) {
     return (
         <div style={{ fontFamily: 'system-ui', padding: 16 }}>
             <h1>Tracks (paginated)</h1>
+
+            <DevPanel targetId={firstId} />
 
             <form onSubmit={submitCreate} style={{ marginBottom: 12 }}>
                 <input

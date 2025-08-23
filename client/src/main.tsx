@@ -8,6 +8,8 @@ import React from 'react'
 
 const environment = createRelayEnvironment();
 
+(Object.assign(window as any, {relayEnv: environment}));
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <RelayEnvironmentProvider environment={environment}>
